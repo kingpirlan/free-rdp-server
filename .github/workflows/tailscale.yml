@@ -1,3 +1,4 @@
+# .github/workflows/tailscale-rdp.yml
 name: Tailscale RDP Access
 
 on:
@@ -6,8 +7,11 @@ on:
 jobs:
   connect:
     runs-on: windows-latest
-    steps:
+    env:
+      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+      RDP_PASSWORD:    ${{ secrets.RDP_PASSWORD }}
 
+    steps:
       - name: Install Chocolatey (if missing)
         shell: powershell
         run: |
@@ -21,31 +25,28 @@ jobs:
         shell: powershell
         run: |
           choco install tailscale --no-progress --yes
-          # بارگذاری ماژول Chocolatey و ریفرش محیط در همان قدم
-          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-          refreshenv
 
-      - name: Bring up Tailscale
+      - name: Start Tailscale (direct shim path)
         shell: powershell
-        env:
-          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          tailscale up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
+          $exe = 'C:\ProgramData\chocolatey\bin\tailscale.exe'
+          Write-Host "Launching Tailscale from $exe"
+          & $exe up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
 
-      - name: Create RDP user and add to Administrators
+      - name: Create (or update) RDP user
         shell: powershell
-        env:
-          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
         run: |
+          # رمز عبور رو امن می‌کنیم
           $pw = ConvertTo-SecureString $env:RDP_PASSWORD -AsPlainText -Force
-          if (-not (Get-LocalUser -Name runneradmin -ErrorAction SilentlyContinue)) {
-            New-LocalUser -Name runneradmin -Password $pw -PasswordNeverExpires:$true -AccountNeverExpires:$true
+          if (-not (Get-LocalUser runneradmin -ErrorAction SilentlyContinue)) {
+            New-LocalUser runneradmin -Password $pw -PasswordNeverExpires -AccountNeverExpires
           } else {
-            Set-LocalUser -Name runneradmin -Password $pw
+            Set-LocalUser runneradmin -Password $pw
           }
-          Add-LocalGroupMember -Group "Administrators" -Member runneradmin -ErrorAction SilentlyContinue
+          Add-LocalGroupMember Administrators runneradmin -ErrorAction SilentlyContinue
 
       - name: Print Tailscale IP
         shell: powershell
         run: |
-          & "$env:ChocolateyInstall\bin\tailscale.exe" ip
+          $exe = 'C:\ProgramData\chocolatey\bin\tailscale.exe'
+          & $exe ip
