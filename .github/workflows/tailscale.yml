@@ -7,30 +7,29 @@ jobs:
   connect:
     runs-on: windows-latest
     steps:
-      - name: Install Chocolatey (if missing)
-        shell: powershell
-        run: |
-          if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-            Set-ExecutionPolicy Bypass -Scope Process -Force
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-            iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-          }
 
-      - name: Install Tailscale via Chocolatey
-        shell: powershell
-        run: |
-          choco install tailscale --no-progress --yes
-
-      - name: Refresh environment variables
-        shell: powershell
-        run: |
-          refreshenv
-
-      - name: Bring up Tailscale
+      - name: Install Tailscale & Bring Up
         shell: powershell
         env:
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
+          # نصب Chocolatey در صورت نیاز
+          if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            iex ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+          }
+
+          # نصب Tailscale
+          choco install tailscale --no-progress --yes
+
+          # بارگذاری ماژول Chocolatey برای دسترسی به refreshenv
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+
+          # ریفرش کردن محیط تا PATH جدید شناسایی شود
+          refreshenv
+
+          # بالا آوردن Tailscale
           tailscale up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
 
       - name: Set RDP user and password
