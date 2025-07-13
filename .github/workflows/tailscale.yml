@@ -8,37 +8,44 @@ jobs:
     runs-on: windows-latest
     steps:
 
-      - name: Install Tailscale & Bring Up
+      - name: Install Chocolatey (if missing)
         shell: powershell
-        env:
-          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          # نصب Chocolatey در صورت نیاز
           if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
             Set-ExecutionPolicy Bypass -Scope Process -Force
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             iex ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
           }
 
-          # نصب Tailscale
+      - name: Install Tailscale via Chocolatey
+        shell: powershell
+        run: |
           choco install tailscale --no-progress --yes
 
-          # بارگذاری ماژول Chocolatey برای دسترسی به refreshenv
+      - name: Setup and Start Tailscale
+        shell: powershell
+        env:
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+        run: |
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-
-          # ریفرش کردن محیط تا PATH جدید شناسایی شود
           refreshenv
-
-          # بالا آوردن Tailscale
           tailscale up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
 
-      - name: Set RDP user and password
+      - name: Create RDP user and add to Administrators
         shell: powershell
         env:
           RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
         run: |
-          net user runneradmin $env:RDP_PASSWORD /add
-          net localgroup administrators runneradmin /add
+          $pw = ConvertTo-SecureString $env:RDP_PASSWORD -AsPlainText -Force
+          if (-not (Get-LocalUser -Name runneradmin -ErrorAction SilentlyContinue)) {
+            New-LocalUser -Name runneradmin -Password $pw -PasswordNeverExpires:$true -AccountNeverExpires:$true
+            Write-Host "User runneradmin created."
+          } else {
+            Write-Host "User runneradmin already exists, updating password."
+            Set-LocalUser -Name runneradmin -Password $pw
+          }
+          Add-LocalGroupMember -Group "Administrators" -Member runneradmin -ErrorAction SilentlyContinue
+          Write-Host "runneradmin is member of Administrators."
 
       - name: Print Tailscale IP
         shell: powershell
