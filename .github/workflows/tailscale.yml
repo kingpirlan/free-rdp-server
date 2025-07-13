@@ -7,19 +7,36 @@ jobs:
   connect:
     runs-on: windows-latest
     steps:
-      - name: Download Tailscale zip
+      - name: Install Chocolatey (if missing)
+        shell: powershell
         run: |
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.66.4-amd64.msi" -OutFile "tailscale.msi"
-          Start-Process -Wait -FilePath msiexec.exe -ArgumentList '/a tailscale.msi /quiet TARGETDIR=C:\TailscaleExtracted'
-          Start-Sleep -Seconds 5
+          if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+            iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+          }
 
-      - name: Run Tailscale
+      - name: Install Tailscale via Chocolatey
+        shell: powershell
         run: |
-          & "C:\TailscaleExtracted\Program Files\Tailscale\tailscale.exe" up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner
+          choco install tailscale --no-progress --yes
 
-      - name: Set RDP password
-        run: net user runneradmin MyStrongPassword123!
+      - name: Bring up Tailscale
+        shell: powershell
+        env:
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+        run: |
+          tailscale up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
+
+      - name: Set RDP user and password
+        shell: powershell
+        env:
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
+        run: |
+          net user runneradmin $env:RDP_PASSWORD /add
+          net localgroup administrators runneradmin /add
 
       - name: Print Tailscale IP
+        shell: powershell
         run: |
-          & "C:\TailscaleExtracted\Program Files\Tailscale\tailscale.exe" ip
+          tailscale ip
