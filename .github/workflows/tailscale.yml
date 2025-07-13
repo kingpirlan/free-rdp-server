@@ -7,16 +7,19 @@ jobs:
   connect:
     runs-on: windows-latest
     steps:
-      - name: Download Tailscale standalone
+      - name: Download Tailscale zip
         run: |
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-ipn.exe" -OutFile "tailscale.exe"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.66.4-amd64.msi" -OutFile "tailscale.msi"
+          Start-Process -Wait -FilePath msiexec.exe -ArgumentList '/a tailscale.msi /quiet TARGETDIR=C:\TailscaleExtracted'
+          Start-Sleep -Seconds 5
 
-      - name: Start Tailscale (login)
+      - name: Run Tailscale
         run: |
-          .\tailscale.exe up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner
+          & "C:\TailscaleExtracted\Program Files\Tailscale\tailscale.exe" up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner
 
       - name: Set RDP password
         run: net user runneradmin MyStrongPassword123!
 
       - name: Print Tailscale IP
-        run: .\tailscale.exe ip
+        run: |
+          & "C:\TailscaleExtracted\Program Files\Tailscale\tailscale.exe" ip
