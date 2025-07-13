@@ -7,27 +7,16 @@ jobs:
   connect:
     runs-on: windows-latest
     steps:
-      - name: Install Tailscale
+      - name: Download Tailscale standalone
         run: |
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.66.4-amd64.msi" -OutFile "tailscale.msi"
-          Start-Process -Wait -FilePath msiexec.exe -ArgumentList '/i tailscale.msi /quiet /norestart'
-          Start-Sleep -Seconds 10
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-ipn.exe" -OutFile "tailscale.exe"
 
-      - name: Confirm Tailscale Path
+      - name: Start Tailscale (login)
         run: |
-          if (!(Test-Path "C:\Program Files (x86)\Tailscale\tailscale.exe")) {
-            Write-Error "Tailscale not found in expected path."
-          } else {
-            Write-Host "Tailscale installed successfully."
-          }
-
-      - name: Start Tailscale
-        run: |
-          & "C:\Program Files (x86)\Tailscale\tailscale.exe" up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner
+          .\tailscale.exe up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner
 
       - name: Set RDP password
         run: net user runneradmin MyStrongPassword123!
 
-      - name: Show Tailscale IP
-        run: |
-          & "C:\Program Files (x86)\Tailscale\tailscale.exe" ip
+      - name: Print Tailscale IP
+        run: .\tailscale.exe ip
