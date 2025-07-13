@@ -14,10 +14,11 @@ jobs:
 
       - name: Start Tailscale
         run: |
-          tailscale up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner --advertise-tags=tag:github
-          
+          & "C:\Program Files (x86)\Tailscale\tailscale.exe" up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner
+
       - name: Set RDP password
         run: net user runneradmin MyStrongPassword123!
 
       - name: Print Tailscale IP
-        run: tailscale ip
+        run: |
+          & "C:\Program Files (x86)\Tailscale\tailscale.exe" ip
