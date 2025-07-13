@@ -10,7 +10,16 @@ jobs:
       - name: Install Tailscale
         run: |
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.66.4-amd64.msi" -OutFile "tailscale.msi"
-          Start-Process msiexec.exe -Wait -ArgumentList '/i tailscale.msi /quiet'
+          Start-Process -Wait -FilePath msiexec.exe -ArgumentList '/i tailscale.msi /quiet /norestart'
+          Start-Sleep -Seconds 10
+
+      - name: Confirm Tailscale Path
+        run: |
+          if (!(Test-Path "C:\Program Files (x86)\Tailscale\tailscale.exe")) {
+            Write-Error "Tailscale not found in expected path."
+          } else {
+            Write-Host "Tailscale installed successfully."
+          }
 
       - name: Start Tailscale
         run: |
@@ -19,6 +28,6 @@ jobs:
       - name: Set RDP password
         run: net user runneradmin MyStrongPassword123!
 
-      - name: Print Tailscale IP
+      - name: Show Tailscale IP
         run: |
           & "C:\Program Files (x86)\Tailscale\tailscale.exe" ip
