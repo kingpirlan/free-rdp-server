@@ -21,14 +21,15 @@ jobs:
         shell: powershell
         run: |
           choco install tailscale --no-progress --yes
+          # بارگذاری ماژول Chocolatey و ریفرش محیط در همان قدم
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+          refreshenv
 
-      - name: Setup and Start Tailscale
+      - name: Bring up Tailscale
         shell: powershell
         env:
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-          refreshenv
           tailscale up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
 
       - name: Create RDP user and add to Administrators
@@ -39,15 +40,12 @@ jobs:
           $pw = ConvertTo-SecureString $env:RDP_PASSWORD -AsPlainText -Force
           if (-not (Get-LocalUser -Name runneradmin -ErrorAction SilentlyContinue)) {
             New-LocalUser -Name runneradmin -Password $pw -PasswordNeverExpires:$true -AccountNeverExpires:$true
-            Write-Host "User runneradmin created."
           } else {
-            Write-Host "User runneradmin already exists, updating password."
             Set-LocalUser -Name runneradmin -Password $pw
           }
           Add-LocalGroupMember -Group "Administrators" -Member runneradmin -ErrorAction SilentlyContinue
-          Write-Host "runneradmin is member of Administrators."
 
       - name: Print Tailscale IP
         shell: powershell
         run: |
-          tailscale ip
+          & "$env:ChocolateyInstall\bin\tailscale.exe" ip
