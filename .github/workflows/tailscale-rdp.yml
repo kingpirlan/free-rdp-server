@@ -1,52 +1,39 @@
-# .github/workflows/tailscale-rdp.yml
-name: Tailscale RDP Access
-
+name: Tailscale RDP Access (Guaranteed to Work)
 on:
   workflow_dispatch:
 
 jobs:
   connect:
     runs-on: windows-latest
-    env:
-      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
-      RDP_PASSWORD:    ${{ secrets.RDP_PASSWORD }}
-
     steps:
-      - name: Install Chocolatey (if missing)
-        shell: powershell
-        run: |
-          if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-            Set-ExecutionPolicy Bypass -Scope Process -Force
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            iex ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-          }
-
       - name: Install Tailscale via Chocolatey
-        shell: powershell
-        run: |
-          choco install tailscale --no-progress --yes
+        run: choco install tailscale -y --no-progress
 
-      - name: Start Tailscale (direct shim path)
-        shell: powershell
-        run: |
-          $exe = 'C:\ProgramData\chocolatey\bin\tailscale.exe'
-          Write-Host "Launching Tailscale from $exe"
-          & $exe up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
+      - name: Add Tailscale installation folder to the PATH
+        run: echo "C:\Program Files\Tailscale" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Create (or update) RDP user
-        shell: powershell
-        run: |
-          # رمز عبور رو امن می‌کنیم
-          $pw = ConvertTo-SecureString $env:RDP_PASSWORD -AsPlainText -Force
-          if (-not (Get-LocalUser runneradmin -ErrorAction SilentlyContinue)) {
-            New-LocalUser runneradmin -Password $pw -PasswordNeverExpires -AccountNeverExpires
-          } else {
-            Set-LocalUser runneradmin -Password $pw
-          }
-          Add-LocalGroupMember Administrators runneradmin -ErrorAction SilentlyContinue
+      - name: Start Tailscale
+        env:
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+        run: tailscale up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=github-runner
 
-      - name: Print Tailscale IP
+      - name: Enable RDP and Set User Password
+        env:
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
         shell: powershell
         run: |
-          $exe = 'C:\ProgramData\chocolatey\bin\tailscale.exe'
-          & $exe ip
+          # Set the password for the existing 'runneradmin' user
+          $password = ConvertTo-SecureString -String $env:RDP_PASSWORD -AsPlainText -Force
+          Set-LocalUser -Name runneradmin -Password $password
+          
+          # Enable Remote Desktop connections
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+      - name: Show IP and Keep Alive
+        run: |
+          echo "✅ RDP is ready!"
+          echo "Your Tailscale IP Address is:"
+          tailscale ip -4
+          echo "This connection will remain active for 6 hours."
+          Start-Sleep -Seconds 21000
