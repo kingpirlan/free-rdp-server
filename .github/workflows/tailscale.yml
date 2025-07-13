@@ -21,12 +21,12 @@ jobs:
         run: |
           choco install tailscale --no-progress --yes
 
-      - name: Bring up Tailscale
+      - name: Bring up Tailscale (full path)
         shell: powershell
         env:
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          tailscale up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
+          & "C:\Program Files (x86)\Tailscale\tailscale.exe" up --authkey $env:TAILSCALE_AUTHKEY --hostname github-runner
 
       - name: Set RDP user and password
         shell: powershell
@@ -39,4 +39,4 @@ jobs:
       - name: Print Tailscale IP
         shell: powershell
         run: |
-          tailscale ip
+          & "C:\Program Files (x86)\Tailscale\tailscale.exe" ip
