@@ -1,0 +1,23 @@
+name: Tailscale RDP Access
+
+on:
+  workflow_dispatch:
+
+jobs:
+  connect:
+    runs-on: windows-latest
+    steps:
+      - name: Install Tailscale
+        run: |
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.66.4-amd64.msi" -OutFile "tailscale.msi"
+          Start-Process msiexec.exe -Wait -ArgumentList '/i tailscale.msi /quiet'
+
+      - name: Start Tailscale
+        run: |
+          tailscale up --authkey tskey-auth-kPqBbVk2Ru11CNTRL-1finLB8HTU4uDSAgsGbYU4hTS58Yfr2p3 --hostname github-runner --advertise-tags=tag:github
+          
+      - name: Set RDP password
+        run: net user runneradmin MyStrongPassword123!
+
+      - name: Print Tailscale IP
+        run: tailscale ip
